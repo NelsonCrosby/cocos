@@ -399,10 +399,27 @@ def load_tmx(filename):
 
         resource.add_resource(id, m)
 
-    # finally, object groups
+    # Load object groups
     for tag in map.findall('objectgroup'):
         layer = TmxObjectLayer.fromxml(tag, tilesets, map_height_pixels)
         resource.add_resource(layer.name, layer)
+
+    # Load image layers
+    for layer_tag in map.findall('imagelayer'):
+        # Load image
+        image_tag = layer_tag[0]
+        image_path = resource.find_file(image_tag.attrib['source'])
+        image = pyglet.image.load(image_path)
+        # Calculate offset for bottom-left corner
+        offset = (
+            int(layer_tag.attrib['offsetx']),
+            # Convert top offset to bottom offset
+            (height * tile_height)
+                - int(layer_tag.attrib['offsety'])
+                - image.height
+        )
+        layer = TmxImageLayer(image, offset)
+        resource.add_resource(tag.attrib['name'], layer)
 
     return resource
 
@@ -1845,6 +1862,18 @@ class TmxObjectLayer(MapLayer):
             if cell not in self._sprites:
                 self._sprites[cell] = pyglet.sprite.Sprite(image, x=int(cx), y=int(cy),
                                                            batch=self.batch)
+
+
+class TmxImageLayer(ScrollableLayer):
+    def __init__(self, image, offset):
+        super(ScrollableLayer, self).__init__()
+        self.image = image
+        self.offset = offset
+
+        sprite = Sprite(image,
+            position=(offset[0] + (image.width / 2),
+                      offset[1] + (image.height / 2)))
+        self.add(sprite)
 
 
 class RectMapCollider(object):
